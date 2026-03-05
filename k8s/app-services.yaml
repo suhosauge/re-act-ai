@@ -1,0 +1,229 @@
+# Secrets
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: atp-secrets
+  namespace: atp
+type: Opaque
+stringData:
+  postgres-password: "admin123"
+  redis-password: ""
+
+---
+# API Server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: atp
+  labels:
+    app: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/suhosauge/re-act-ai/api:latest
+          ports:
+            - containerPort: 3001
+          env:
+            - name: PORT
+              value: "3001"
+            - name: DATABASE_URL
+              value: "postgresql://admin:admin123@postgres:5432/training_platform"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+            - name: OLLAMA_URL
+              value: "http://ollama:11434"
+            - name: QDRANT_URL
+              value: "http://qdrant:6333"
+            - name: CLICKHOUSE_URL
+              value: "http://clickhouse:8123"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: atp
+spec:
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+
+---
+# Dashboard UI
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui
+  namespace: atp
+  labels:
+    app: ui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ui
+  template:
+    metadata:
+      labels:
+        app: ui
+    spec:
+      containers:
+        - name: ui
+          image: ghcr.io/suhosauge/re-act-ai/ui:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://api:3001"
+            - name: NEXT_PUBLIC_WS_URL
+              value: "ws://api:3001/ws"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui
+  namespace: atp
+spec:
+  selector:
+    app: ui
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+# Training Worker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training-worker
+  namespace: atp
+  labels:
+    app: training-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: training-worker
+  template:
+    metadata:
+      labels:
+        app: training-worker
+    spec:
+      # GPU node affinity — uncomment for GPU training
+      # nodeSelector:
+      #   nvidia.com/gpu.present: "true"
+      containers:
+        - name: training-worker
+          image: ghcr.io/suhosauge/re-act-ai/training:latest
+          env:
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: DATABASE_URL
+              value: "postgresql://admin:admin123@postgres:5432/training_platform"
+            - name: OLLAMA_URL
+              value: "http://ollama:11434"
+            - name: QDRANT_URL
+              value: "http://qdrant:6333"
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse"
+          resources:
+            requests:
+              memory: 2Gi
+              cpu: "1"
+            limits:
+              memory: 8Gi
+              cpu: "4"
+              # nvidia.com/gpu: "1"  # Uncomment for GPU
+
+---
+# Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atp-ingress
+  namespace: atp
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "api"
+spec:
+  rules:
+    - host: atp.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 3001
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 3001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ui
+                port:
+                  number: 3000

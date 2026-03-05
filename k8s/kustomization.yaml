@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: atp
+
+resources:
+  - namespace.yaml
+  - data-services.yaml
+  - ai-services.yaml
+  - kafka.yaml
+  - app-services.yaml
