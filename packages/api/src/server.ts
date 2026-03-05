@@ -5,6 +5,7 @@ import { createServer } from 'http';
 import trainingJobsRouter from './routes/training-jobs';
 import modelsRouter from './routes/models';
 import datasetsRouter from './routes/datasets';
+import backupRouter from './routes/backup';
 import { setupWebSocket } from './ws/training-stream';
 import { pool } from './db';
 
@@ -79,6 +80,7 @@ app.get('/api/system/status', async (_req, res) => {
 app.use('/api/training-jobs', trainingJobsRouter);
 app.use('/api/models', modelsRouter);
 app.use('/api/datasets', datasetsRouter);
+app.use('/api/backup', backupRouter);
 
 // ─── Start Server ───
 const server = createServer(app);

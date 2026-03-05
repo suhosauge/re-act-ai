@@ -68,3 +68,14 @@ export const systemApi = {
 export const configsApi = {
   templates: () => apiFetch<any[]>('/api/datasets/configs/templates'),
 };
+
+// ─── Backup / Restore ───
+export const backupApi = {
+  list: () => apiFetch<{ backups: any[]; total: number }>('/api/backup'),
+  get: (id: string) => apiFetch<any>(`/api/backup/${id}`),
+  create: (notes?: string) => apiFetch<any>('/api/backup', {
+    method: 'POST', body: JSON.stringify({ notes }),
+  }),
+  restore: (id: string) => apiFetch<any>(`/api/backup/${id}/restore`, { method: 'POST' }),
+  delete: (id: string) => apiFetch(`/api/backup/${id}`, { method: 'DELETE' }),
+};
