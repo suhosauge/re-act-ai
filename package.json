@@ -1,0 +1,22 @@
+{
+  "name": "ai-training-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Training Management Dashboard — Control lifecycle of training & fine-tuning models",
+  "workspaces": [
+    "packages/shared",
+    "packages/api",
+    "packages/ui"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w packages/api",
+    "dev:ui": "npm run dev -w packages/ui",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
